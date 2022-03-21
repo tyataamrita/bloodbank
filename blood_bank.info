@@ -1,0 +1,5 @@
+name = blood bank
+description = Helps to keep records of blood
+version = 1
+core = 7.x
+package = Blood bank Management

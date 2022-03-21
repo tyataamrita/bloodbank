@@ -1,0 +1,380 @@
+<?php
+
+// Implements hook_meni 
+
+function blood_bank_menu(){
+    $items = [];
+    $items['blood_bank'] = [
+        'title' => 'Blood Bank', // page title
+        'description' => 'Donors Information', // description show when mouse hover on link
+        'page callback' => 'blood_bank_welcome', //callback function which is invoked when menu item is called.
+        'page arguments' => ['thank','you'],
+        'access callback' => TRUE, //anyone can access this page 
+    ];
+    $items['blood_bank/donors_form'] = [
+        'title' => 'Blood Donor form', 
+        'page callback' => 'drupal_get_form', //inbuilt function
+        'page arguments' => ['blood_bank_form'],
+        'access callback' => TRUE,  
+    ];
+   /* $items['blood_bank/donors_form/%'] = [
+        'title' => 'Donors registration form', 
+        'page callback' => 'drupal_get_form', 
+        'page arguments' => ['blood_bank_form',2],
+        'access callback' => TRUE, 
+    ];*/
+    $items['blood_bank/donors_records'] = [
+        'title' => 'Donors details page',
+        'page callback' => 'blood_bank_records', 
+         'page arguments' => [2],
+        'access callback' => TRUE,  
+    ];
+
+       // to display the records in table form using drupal api i.e theme_table
+     $items['blood_bank/donors_records/%/details'] = [
+         'title' => 'Donors detail page', // page title
+         'page callback' => 'blood_bank_details_view', //inbuilt function
+         'page arguments' => [2],
+        'access callback' => TRUE, //any user can access this page 
+     ];
+
+     $items['blood_bank/donors_records/%/delete'] = [
+         'title' => 'Donors record delete page', // page title
+         'page callback' => 'drupal_get_form', //inbuilt function
+         'page arguments' => array('record_delete_confirm', 2),
+        'access callback' => TRUE, //any user can access this page 
+     ];
+     $items['admin/reports/blood_bank/donors_form'] = [
+        'title' => 'Donors registration form', // page title
+        'page callback' => 'drupal_get_form', //inbuilt function
+        'page arguments' => ['blood_bank_form'],
+        'access callback' => TRUE,
+     ];
+
+    return $items;
+}
+
+/**
+ * call back function of route blood_bank
+ * @param void
+ * @return string
+ */
+
+
+function blood_bank_welcome($param1,$param2){
+    echo "$param1 . $param2";
+}
+
+ function blood_bank_form($form, &$form_state){
+     drupal_add_css(drupal_get_path('module','blood_bank') . '/css/blood_bank.css'); // link css file 
+     drupal_add_js(drupal_get_path('module','blood_bank') . '/js/blood_bank.js'); // link js file 
+
+     $record = new stdClass();
+     if(!empty($donor_id))
+     {
+         $record = db_select('donors_records','sr')
+         ->fields('sr',['$donor_id','donor_name','donor_address','donor_contact','donor_email','donor_info','donor_gender'])
+         ->condition('$donor_id',$donor_id)
+         ->execute()->fetch();
+
+         $form['$donor_id'] = [
+            '#type' => 'hidden',
+            '#default_value' => isset($record->$donor_id)?$record->$donor_id:NULL,
+            ];
+
+    }  
+
+     $form['donor_name'] = [
+        '#type' => 'textfield', //input type text
+        '#title' => 'Donors Name',
+        '#maxlength' => 10,
+        '#default_value' => isset($record -> donor_name) ? $record -> donor_name:NULL,
+        //'#required' => TRUE, //make this field required 
+
+
+    ];
+     $form['donor_address'] = [
+        '#type' => 'textfield', //input type text
+        '#title' => 'Donors Address',
+        '#default_value' => isset($record->donor_address)?$record->donor_address:NULL,
+
+        '#required' => TRUE, //make this field required 
+
+
+    ];
+     $form['donor_contact'] = [
+        '#type' => 'textfield', //input type text
+        '#title' => 'Donors Contact',
+        '#default_value' => isset($record->donor_contact)?$record->donor_contact:NULL,
+
+        '#required' => TRUE, //make this field required 
+
+
+    ];
+     $form['donor_email'] = [
+        '#type' => 'textfield', //input type text
+        '#title' => 'Donors email',
+        '#default_value' => isset($record->donor_email)?$record->donor_email:NULL,
+
+        '#required' => TRUE, //make this field required 
+
+
+    ];
+
+//     if(module_exists('Donorss_additional_info')){
+//     $form['Donors_hobbies'] = [
+//         '#type' => 'textarea', //input type text
+//         '#title' => 'About your hobbies',
+//         '#required' => TRUE,
+//         '#default_value' => isset($record->Donors_hobbies)?$record->Donors_hobbies:NULL,
+//         '#attributes' => ['class' => ['blood_bank_textarea']]
+//     ];
+// }
+
+
+     $form['donor_info'] = [
+        '#type' => 'textarea', //input type text
+        '#title' => 'About yourself',
+        '#default_value' => isset($record->donor_info)?$record->donor_info:NULL,
+
+       // '#required' => TRUE, //make this field required 
+
+
+    ];
+     $form['donor_gender'] = [
+        '#type' => 'radios', //input type text
+        '#title' => 'Gender',
+        '#options' => [
+            'Male' => 'Male',
+            'Female'=> 'Female',
+            'Others' => 'Others',
+        ],
+        '#default_value' => isset($record->donor_gender)?$record->donor_gender:NULL,
+
+
+        '#required' => TRUE, //make this field required 
+
+
+    ];
+    
+$form['submit_button'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+ 
+  // assign function as handler of submit event
+  $form['#submit'][] = 'blood_bank_form_submit';
+  
+  return $form;
+
+}
+
+
+
+function blood_bank_form_validate($form, &$form_state) { // form validation
+    $donor_name = $form_state['values']['donor_name'];
+    $donor_info = $form_state['values']['donor_info'];
+    if(empty($donor_name)){ //incase of empty
+        form_set_error('donor_name', 'Donors name field is required');
+    }
+    else { // in case Donors field name is not empty.
+        if(strlen($donor_name) > 10){
+            form_set_error('donor_name', 'Donors name field input exceeded max length');
+
+        }
+        if(!empty($donor_info)){
+            form_set_error('donor_info', 'About you is not mandatory');
+
+        }
+    }
+    
+    }
+
+  /**
+   * capturing the form submit event
+   * form_id_submit
+   * form_id = module name/argument in form
+   */
+  
+//   
+
+  function blood_bank_form_submit($form, &$form_state){
+    $email = $form_state['values']['donor_email'];
+    // this function will be executed after the click
+    // event of the user on the “submit” button.
+    // here Printing only the message
+    $error = 1;
+    //throws error if no Donors name or checkboxes or email has been inserted
+    if (!isset($form_state['values']['donor_name']) || !isset($form_state['values']['donor_gender']) || !isset($form_state['values']['donor_email'])) {
+        $error = 0;
+    }
+
+    $email = $form_state['values']['donor_email'];
+
+    //Email Validation
+    if (!valid_email_address($email)) {
+        form_set_error('[donor_email]', t('The email address appears to be invalid.'));
+        $error = 0;
+    }
+
+
+
+    if ($error) {
+
+        $donor_name = $form_state['values']['donor_name'];
+        $donor_address = $form_state['values']['donor_address'];
+        $donor_contact = $form_state['values']['donor_contact'];
+        $donor_email = $form_state['values']['donor_email'];
+        $donor_info = $form_state['values']['donor_info'];
+        $donor_gender =  $form_state['values']['donor_gender'];
+        $donor_id = isset($form_state['values']['$donor_id']) ? $form_state['values']['$donor_id'] : '';
+
+
+    if(!$donor_id){
+        // inserting into table
+        $donor_id = db_insert('donors_records')
+                    ->fields(array(
+                        
+                        'donor_name' => $donor_name,
+                        'donor_address' => $donor_address,
+                        'donor_contact' => $donor_contact,
+                        'donor_email' => $donor_email,
+                        'donor_info' => $donor_info,
+                        'donor_gender' => $donor_gender,
+                        
+                    ))
+                    ->execute();
+        drupal_set_message(t('record has been added!'));
+    }else{
+       // var_dump($donor_id);exit;
+            db_update('donors_records')
+            ->fields(array(
+                
+                'donor_name' => $donor_name,
+                'donor_address' => $donor_address,
+                'donor_contact' => $donor_contact,
+                'donor_email' => $donor_email,
+                'donor_info' => $donor_info,
+                'donor_gender' => $donor_gender,
+                
+            ))
+            ->condition('$donor_id',$donor_id)
+            ->execute();
+        
+        drupal_set_message(t('record has been updated!'));
+    }
+
+    drupal_goto("blood_bank/donors_records");
+       
+
+    }
+}
+                
+  
+
+function blood_bank_records(){
+
+    $records = db_select('blood_donors','blood_donors') 
+      ->fields('blood_donors',['$donor_id','donor_name','donor_address','donor_contact','donor_email','donor_info','donor_gender'])
+      ->execute()->fetchAll();
+ 
+     
+   $rows = [];
+
+ 
+       // Table header
+        $header = array( 
+        t('Donors Name'), // first column
+        t('Address'), 
+        t('Contact'), 
+        t('Email'), 
+        t('Info'), 
+        t('Gender'), 
+        t('action'),
+   
+       );
+
+
+       // Table rows
+
+       foreach($records as $key => $record){
+       $rows[] = [
+        $record->donor_name,
+        $record->donor_address,
+        $record->donor_contact,
+        $record->donor_email,
+        $record->donor_info,
+        $record->donor_gender,
+        l('<span>'.t('Edit').'</span>', 'blood_bank/donors_form/' . $record->$donor_id, ['attributes' => ['class' => ['edit', 'btn'], 'data-text' => ['value 1']], 'html' => TRUE]).
+         l(t('Delete'), "blood_bank/donors_records/{$record->$donor_id}/delete").
+         l(t('Details'), "blood_bank/donors_records/{$record->$donor_id}/details")
+
+    ];
+
+       }                                
+    // Format and print out table.
+    return theme('table', array('header' => $header, 'rows'=> $rows));
+  }
+
+ function blood_bank_details_view($donor_id){
+
+      $DonorsDetail = db_select('donors_records', 'sr')
+      ->fields('sr')
+      ->condition('sr.$donor_id', $donor_id)
+      ->execute()
+      ->fetch();
+
+
+        $form['name'] = [
+            '#title' => 'Donors Name',
+            '#type' => 'textfield',
+            '#value' => $DonorsDetail->donor_name,
+        ];
+
+        return $form;
+    
+    
+  }
+
+  function record_delete_confirm($form, &$form_state, $donor_id){
+    $DonorsDetail = db_select('donors_records', 'sr')
+    ->fields('sr')
+    ->condition('sr.$donor_id', $donor_id)
+    ->execute()
+    ->fetch();
+    $form['$donor_id'] = [
+        '#type' => 'value',
+        '#value' => $DonorsDetail->$donor_id
+    ];
+    $form['donor_name'] = [
+        '#type' => 'value',
+        '#value' => $DonorsDetail->donor_name
+    ];
+  
+  return confirm_form($form, 
+    t('Are you sure you want to delete %name?', array('%name' => $DonorsDetail->donor_name)),
+    'blood_bank/donors_',
+    t('This action cannot be undone.'),
+    t('Delete'),
+    t('Cancel')
+  );
+
+  }
+
+  function record_delete_confirm_submit($form, &$form_state) {
+    
+    if($form_state['values']['confirm']) {
+        $donor_id = $form_state['values']['$donor_id'];
+        $donor_name = $form_state['values']['donor_name'];
+       
+    db_delete('donors_records')
+        ->condition('$donor_id', $donor_id)
+        ->execute();
+  
+      drupal_set_message(t('Donors %name has been deleted.', array('%name' => $donor_name)));
+  
+  
+      $form_state['redirect'] = 'blood_bank/donors_records';
+    }
+  }
+  ?>
